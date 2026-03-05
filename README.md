@@ -1,87 +1,48 @@
-# 🦷 BrightSmile Dental Clinic — Demo Voice Booking System
+﻿# Dental Help — AI Voice Dental Booking System
 
-A fully functional demo dental clinic voice booking system built with **ElevenLabs Conversational AI**, **FastAPI**, and **MongoDB Atlas**.
+A fully functional demo dental clinic voice booking system built with **ElevenLabs Conversational AI**, **FastAPI**, and **MongoDB Atlas**. Deployed on **Render**.
 
-Speak to an AI dental receptionist, get available appointment slots, and book a confirmed appointment — all without touching a keyboard. Every conversation and booking is stored automatically in MongoDB.
+Speak to an AI dental receptionist, get available appointment slots, and book a confirmed appointment - all without touching a keyboard. Every conversation and booking is stored automatically in MongoDB.
 
 ---
 
-## Demo Clinic Data
+## Demo Clinic
 
-| Field | Value |
+| | |
 |---|---|
-| **Name** | BrightSmile Dental Clinic |
+| **Name** | Dental Help |
 | **Address** | 42 Oak Street, Suite 200, Springfield, IL 62701 |
 | **Phone** | (217) 555-0148 |
-| **Hours (Mon–Fri)** | 9:00 AM – 6:00 PM |
-| **Hours (Saturday)** | 9:00 AM – 2:00 PM |
+| **Mon–Fri** | 9:00 AM – 6:00 PM |
+| **Saturday** | 9:00 AM – 2:00 PM |
 | **Sunday** | Closed |
 
-### Services
-
-| Service | Price | Duration |
-|---|---|---|
-| Routine Checkup | $80 | 30 min |
-| Teeth Cleaning | $120 | 45 min |
-| Teeth Whitening | $200 | 60 min |
-| Cavity Filling | $150 | 45 min |
-| Root Canal Treatment | $850 | 90 min |
-| Dental X-Ray | $75 | 20 min |
-| Tooth Extraction | $200 | 45 min |
-| Braces Consultation | FREE | 30 min |
-| Emergency Dental Care | $250 | 60 min |
+**Services:** Routine Checkup ($80)  Teeth Cleaning ($120)  Teeth Whitening ($200)  Cavity Filling ($150)  Root Canal ($850)  X-Ray ($75)  Extraction ($200)  Braces Consultation (Free)  Emergency Care ($250)
 
 ---
 
-## Architecture & System Flow
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser / User                           │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │         Frontend (HTML + CSS + TypeScript)               │   │
-│  │  • ElevenLabs widget embeds voice agent                  │   │
-│  │  • Displays conversations & appointments from MongoDB    │   │
-│  └────────────────────┬─────────────────────────────────────┘   │
-└───────────────────────│─────────────────────────────────────────┘
-                        │  REST API  /api/*
-                        ▼
-┌──────────────────────────────────────────────────────────────── ─┐
-│               FastAPI Backend (Python)                           │
-│                                                                  │
-│  /api/slots            ← check_availability tool (GET)          │
-│  /api/book-appointment ← book_appointment tool (POST)           │
-│  /webhook/elevenlabs   ← post-call webhook (POST)               │
-│  /api/conversations    ← frontend reads stored data             │
-│  /api/appointments     ← frontend reads stored data             │
-└────────────────────────┬─────────────────────────────────────────┘
-                         │  Motor (async)
-                         ▼
-                ┌─────────────────┐
-                │  MongoDB Atlas  │
-                │  conversations  │
-                │  appointments   │
-                └─────────────────┘
-
-                  ▲                  ▲
-                  │ Server Tools     │ Post-Call Webhook
-                  │ (during call)    │ (after call ends)
-                  └──────────────────┘
-                    ElevenLabs Cloud
+Browser
+   Frontend (HTML + CSS + JS)
+         ElevenLabs voice widget    ElevenLabs Cloud
+         REST /api/*                FastAPI Backend (Render)
+                                               /api/slots             (agent tool)
+                                               /api/book-appointment  (agent tool)
+                                               /webhook/elevenlabs    (post-call)
+                                               MongoDB Atlas
+                                                     conversations
+                                                     appointments
 ```
 
-### Step-by-step call flow
-
-1. User opens the frontend and clicks the voice widget.
-2. ElevenLabs connects the user to the **Aria** AI agent.
-3. The agent greets the user and can answer any clinic questions.
-4. To book, the agent collects: **name**, **service**, **preferred time**.
-5. Agent calls `check_availability` → backend returns open slots from MongoDB.
-6. Agent presents slots; user confirms a choice.
-7. Agent calls `book_appointment` → backend writes a `confirmed` document to `appointments`.
-8. After the call ends, ElevenLabs sends a **post-call webhook** to `/webhook/elevenlabs`.
-9. Backend verifies the HMAC-SHA256 signature, extracts the transcript, determines `booking_status`, and inserts a document into `conversations`.
-10. Frontend polls every 10 seconds — new rows appear in both tables automatically.
+**Call flow:**
+1. User opens site  clicks voice widget
+2. ElevenLabs connects the user to **Aria** the AI receptionist
+3. User asks to book  agent calls `check_availability`  backend returns open slots
+4. User confirms a slot  agent calls `book_appointment`  written to MongoDB
+5. Call ends  ElevenLabs fires post-call webhook  backend stores full transcript + booking_status
+6. Frontend polls `/api/conversations` and `/api/appointments` every 10 s  tables update automatically
 
 ---
 
@@ -89,166 +50,163 @@ Speak to an AI dental receptionist, get available appointment slots, and book a 
 
 | Layer | Technology |
 |---|---|
-| **Voice AI** | ElevenLabs Conversational AI (GPT-4o-mini LLM, server tools) |
-| **Backend** | Python 3.11+ · FastAPI · Motor (async MongoDB) |
-| **Database** | MongoDB Atlas (free M0 tier) |
-| **Frontend** | HTML5 · CSS3 · TypeScript (compiled to JS, no build step) |
-| **Deployment** | Railway (one service, backend serves frontend static files) |
+| Voice AI | ElevenLabs Conversational AI (GPT-4o-mini, server tools) |
+| Backend | Python 3.11  FastAPI  Motor (async MongoDB) |
+| Database | MongoDB Atlas (free M0 tier) |
+| Frontend | HTML5  CSS3  Vanilla JS (no build step) |
+| Deployment | Render (free web service) |
 
 ---
 
 ## Prerequisites
 
-- Python 3.11 or newer
-- A free [ElevenLabs](https://elevenlabs.io) account
-- A free [MongoDB Atlas](https://cloud.mongodb.com) account
-- A [Railway](https://railway.app) account (free tier works)
-- Git
+- Python 3.11+
+- [ElevenLabs](https://elevenlabs.io) account (free tier works)
+- [MongoDB Atlas](https://cloud.mongodb.com) account (free M0 cluster)
+- [Render](https://render.com) account (free tier works)
+- [GitHub](https://github.com) account
 
 ---
 
 ## Setup Guide
 
-### Step 1 — Clone the repository
-
-```bash
-git clone https://github.com/YOUR_USERNAME/demodental.git
-cd demodental
-```
-
-### Step 2 — Create a virtual environment and install dependencies
-
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r backend/requirements.txt
-```
-
-### Step 3 — Get an ElevenLabs API key
+### 1 — Get an ElevenLabs API key
 
 1. Sign up at [elevenlabs.io](https://elevenlabs.io)
-2. Go to **Profile (top-right) → API Keys**
-3. Click **Create API Key**, copy the value
+2. **Profile (top-right)  API Keys  Create API Key**
+3. Copy the key (starts with `sk_`)
 
-### Step 4 — Set up MongoDB Atlas
+### 2 — Set up MongoDB Atlas
 
 1. Sign up at [cloud.mongodb.com](https://cloud.mongodb.com)
 2. Create a free **M0** cluster
-3. Under **Database Access** → create a user with read/write privileges
-4. Under **Network Access** → add `0.0.0.0/0` (allow all IPs — fine for demo)
-5. Under **Databases** → click **Connect → Drivers** → copy the connection string
-6. Replace `<password>` with your database user password
-
-### Step 5 — Configure environment variables
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and fill in:
-
-```env
-ELEVENLABS_API_KEY=your_key_from_step_3
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DBNAME=demodental
-BACKEND_URL=         # leave blank for now — fill after Step 6
-WEBHOOK_SECRET=      # leave blank — auto-filled by setup script
-AGENT_ID=            # leave blank — auto-filled by setup script
-```
-
-### Step 6 — Deploy to Railway
-
-1. Push your code to a GitHub repository:
-
-   ```bash
-   git add .
-   git commit -m "initial commit"
-   git push origin main
+3. **Database Access**  Add user  username + password  Read/Write
+4. **Network Access**  Add IP  `0.0.0.0/0` (allow all)
+5. **Databases  Connect  Drivers**  copy the connection string
+   ```
+   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
    ```
 
-2. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
-3. Select your repo
-4. Under **Variables**, add:
-   - `ELEVENLABS_API_KEY`
-   - `MONGODB_URI`
-   - `MONGODB_DBNAME` = `demodental`
-5. Railway auto-detects `railway.json` and deploys
-6. Once deployed, copy the **public domain** (e.g. `https://demodental.up.railway.app`)
-
-### Step 7 — Run the setup script
-
-Back on your local machine, with `.env` updated with `BACKEND_URL`:
+### 3 — Push to GitHub
 
 ```bash
+git remote add origin https://github.com/YOUR_USERNAME/dental-help.git
+git push -u origin master
+```
+
+### 4 — Deploy to Render
+
+1. Go to [render.com](https://render.com)  **New  Web Service**
+2. Connect your GitHub account  select the `dental-help` repo
+3. Render auto-detects `render.yaml`. Confirm these settings:
+   - **Environment:** Python
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+4. Under **Environment Variables**, add:
+
+   | Key | Value |
+   |---|---|
+   | `ELEVENLABS_API_KEY` | your key from Step 1 |
+   | `MONGODB_URI` | your connection string from Step 2 |
+   | `MONGODB_DBNAME` | `demodental` |
+   | `BACKEND_URL` | *(leave blank for now — fill after first deploy)* |
+   | `WEBHOOK_SECRET` | *(leave blank — auto-filled by setup script)* |
+   | `AGENT_ID` | *(leave blank — auto-filled by setup script)* |
+
+5. Click **Create Web Service**
+6. Wait ~2 min  Render gives you a public URL:
+   ```
+   https://dental-help.onrender.com
+   ```
+
+### 5 — Run the agent setup script
+
+Back on your local machine:
+
+```bash
+# Copy .env.example and fill in your values
+cp .env.example .env
+
+# Set ELEVENLABS_API_KEY, MONGODB_URI, and BACKEND_URL in .env
+# BACKEND_URL = the Render URL from Step 4 (e.g. https://dental-help.onrender.com)
+
+# Run the one-time setup
 python scripts/setup_agent.py
 ```
 
-This script:
-- Verifies your ElevenLabs API key
-- Registers a workspace webhook pointing to your Railway backend
-- Creates the **BrightSmile Dental Assistant** agent with both server tools configured
-- Writes `WEBHOOK_SECRET` and `AGENT_ID` back to your `.env`
-- Writes `frontend/config.js` with the `agentId`
+This script will:
+- Register the post-call webhook with ElevenLabs pointing to your Render URL
+- Create the **Dental Help** AI agent with both server tools configured
+- Write `WEBHOOK_SECRET` and `AGENT_ID` back to your `.env`
+- Write `frontend/config.js` with the `agentId` so the widget loads
 
-### Step 8 — Update Railway environment variables
+### 6 — Push final config and redeploy
 
-After the setup script runs, add two more variables to your Railway deployment:
+```bash
+git add frontend/config.js
+git commit -m "chore: add agent config"
+git push
+```
 
-- `WEBHOOK_SECRET` = value from your `.env`
-- `AGENT_ID` = value from your `.env`
+Then in Render  your service  **Environment**  add the two new variables:
+- `WEBHOOK_SECRET` = value from `.env`
+- `AGENT_ID` = value from `.env`
 
-Then **redeploy** (Railway → Deployments → Redeploy, or push a new commit).
+Render redeploys automatically on push.
 
-### Step 9 — Test the system
+### 7 — Test
 
-1. Open `https://your-app.up.railway.app` in your browser
-2. You should see the BrightSmile Dental Clinic frontend
-3. The voice widget (blue microphone button, bottom-right) should appear
-4. Click it and speak with the agent
+Open your Render URL  click the voice widget  talk to Aria.
 
-**Sample conversation to test the full flow:**
-> "Hi, I'd like to book a teeth cleaning appointment for next Monday afternoon."
+**Sample conversation:**
+> "Hi, I'd like to book a teeth cleaning for next Tuesday afternoon."
 
-The agent will:
-- Greet you as Aria
-- Call `check_availability` to get open slots
-- Offer you available time slots
-- Collect your name
-- Call `book_appointment` to confirm the booking
-- After the call ends, your conversation and appointment appear in the frontend tables
+After the call ends (~30 s)  refresh the page  rows appear in both tables.
+
+---
+
+## Local Development
+
+```bash
+# Install deps
+pip install -r requirements.txt
+
+# Copy and fill .env
+cp .env.example .env
+
+# Run (serves frontend too)
+uvicorn backend.main:app --reload --port 8000
+```
+
+Open [http://localhost:8000](http://localhost:8000).
+
+> **Note:** ElevenLabs cannot reach `localhost` for webhooks and tools. Use [ngrok](https://ngrok.com) to expose a tunnel and set `BACKEND_URL` accordingly before running `setup_agent.py`.
+
+```bash
+ngrok http 8000
+# Copy the https://xxxxx.ngrok-free.app URL  set as BACKEND_URL in .env
+```
 
 ---
 
 ## MongoDB Verification
 
-Log into [MongoDB Atlas](https://cloud.mongodb.com):
+Log into [MongoDB Atlas](https://cloud.mongodb.com)  Browse Collections  database `demodental`:
 
-1. Navigate to your cluster → **Browse Collections**
-2. Select database `demodental`
-3. You should see two collections:
-
-**`conversations`** — created automatically after each call:
+**`conversations`** (created automatically after each call ends):
 ```json
 {
-  "_id": "ObjectId(...)",
   "caller_id": "conv_abc123",
   "transcript": "Aria: Thank you for calling...\nYou: I'd like to book...",
   "booking_status": "success",
   "call_duration_secs": 87,
-  "termination_reason": "agent_goodbye",
-  "summary": "Patient requested a teeth cleaning...",
   "created_at": "2026-03-05T14:32:00Z"
 }
 ```
 
-**`appointments`** — created the moment the agent calls `book_appointment`:
+**`appointments`** (created the moment the agent confirms a booking):
 ```json
 {
-  "_id": "ObjectId(...)",
   "conversation_id": "conv_abc123",
   "patient_name": "John Smith",
   "service_type": "Teeth Cleaning",
@@ -263,113 +221,63 @@ Log into [MongoDB Atlas](https://cloud.mongodb.com):
 ## Project Structure
 
 ```
-demodental/
-├── backend/
-│   ├── __init__.py
-│   ├── main.py           # FastAPI app, serves frontend static files
-│   ├── database.py       # Motor async MongoDB connection
-│   ├── models.py         # Pydantic models for DB documents & API I/O
-│   ├── clinic_data.py    # Demo clinic constants + slot generator
-│   ├── requirements.txt
-│   └── routes/
-│       ├── __init__.py
-│       ├── tools.py      # /api/slots, /api/book-appointment (called by ElevenLabs agent)
-│       ├── webhook.py    # /webhook/elevenlabs (post-call event handler)
-│       └── data.py       # /api/conversations, /api/appointments, /api/config
-├── frontend/
-│   ├── index.html        # Single-page frontend
-│   ├── styles.css        # Clean, functional styling
-│   ├── app.ts            # TypeScript source
-│   ├── app.js            # Pre-compiled JS (served directly — no build needed)
-│   ├── config.js         # Auto-generated by setup_agent.py (contains agentId)
-│   └── tsconfig.json
-├── scripts/
-│   └── setup_agent.py    # One-time ElevenLabs webhook + agent creation script
-├── .env.example          # Environment variable template
-├── .gitignore
-├── Procfile              # Railway / Heroku start command
-├── railway.json          # Railway deployment configuration
-└── README.md
+dental-help/
+ backend/
+    main.py              FastAPI app, serves frontend static files
+    database.py          Motor async MongoDB connection
+    models.py            Pydantic models
+    clinic_data.py       Demo clinic data + slot generator
+    requirements.txt
+    routes/
+        tools.py         /api/slots, /api/book-appointment  (called by AI agent)
+        webhook.py       /webhook/elevenlabs  (post-call event, HMAC-verified)
+        data.py          /api/conversations, /api/appointments, /api/config
+ frontend/
+    index.html           Single-page UI
+    styles.css           Dark minimal design
+    app.js               Frontend logic
+    config.js            Auto-generated: contains agentId
+ scripts/
+    setup_agent.py       One-time: creates ElevenLabs webhook + agent
+ render.yaml              Render deployment config
+ runtime.txt              Python 3.11 for Render
+ requirements.txt         Root-level (Render build)
+ Procfile
+ .env.example
 ```
 
 ---
 
-## Environment Variables Reference
+## Environment Variables
 
-| Variable | Required | Description |
+| Variable | Where set | Description |
 |---|---|---|
-| `ELEVENLABS_API_KEY` | ✅ | Your ElevenLabs API key |
-| `MONGODB_URI` | ✅ | MongoDB Atlas connection string |
-| `MONGODB_DBNAME` | Optional | Database name (default: `demodental`) |
-| `BACKEND_URL` | ✅ (setup) | Public HTTPS URL of this backend |
-| `WEBHOOK_SECRET` | ✅ (auto) | HMAC secret for webhook verification — written by `setup_agent.py` |
-| `AGENT_ID` | ✅ (auto) | ElevenLabs agent ID — written by `setup_agent.py` |
+| `ELEVENLABS_API_KEY` | Render + `.env` | ElevenLabs API key |
+| `MONGODB_URI` | Render + `.env` | MongoDB Atlas connection string |
+| `MONGODB_DBNAME` | Render (optional) | Database name, default `demodental` |
+| `BACKEND_URL` | Render + `.env` | Public HTTPS URL of this Render service |
+| `WEBHOOK_SECRET` | Render + `.env` | Auto-written by `setup_agent.py` |
+| `AGENT_ID` | Render + `.env` | Auto-written by `setup_agent.py` |
 
 ---
 
-## API Reference
+## API Endpoints
 
 | Method | URL | Description |
 |---|---|---|
 | `GET` | `/api/health` | Liveness probe |
-| `GET` | `/api/config` | Returns `agent_id` and `clinic_name` |
-| `GET` | `/api/slots` | Available appointment slots (used by agent tool) |
-| `POST` | `/api/book-appointment` | Book a slot (used by agent tool) |
-| `GET` | `/api/conversations` | All stored conversations (frontend) |
-| `GET` | `/api/appointments` | All stored appointments (frontend) |
-| `GET` | `/api/clinic-info` | Full clinic information |
+| `GET` | `/api/config` | Returns `agent_id` for the frontend widget |
+| `GET` | `/api/slots` | Available slots (called by AI agent tool) |
+| `POST` | `/api/book-appointment` | Book a slot (called by AI agent tool) |
+| `GET` | `/api/conversations` | All stored conversations |
+| `GET` | `/api/appointments` | All stored appointments |
 | `POST` | `/webhook/elevenlabs` | ElevenLabs post-call webhook (HMAC-verified) |
-
----
-
-## Local Development
-
-```bash
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Copy and fill .env
-cp .env.example .env
-
-# Run the backend (serves frontend too)
-uvicorn backend.main:app --reload --port 8000
-```
-
-Open [http://localhost:8000](http://localhost:8000).
-
-> **Note:** For local development, ElevenLabs cannot reach `localhost` for webhooks and server tools. Use a tunnel like [ngrok](https://ngrok.com) or [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) and update `BACKEND_URL` accordingly before running `setup_agent.py`.
-
-```bash
-# Example with ngrok
-ngrok http 8000
-# Copy the https://xxxxx.ngrok-free.app URL → set as BACKEND_URL in .env
-```
-
----
-
-## How Webhook Signature Verification Works
-
-ElevenLabs sends a `ElevenLabs-Signature` header with every webhook request:
-
-```
-ElevenLabs-Signature: t=1743856200,v0=abc123...
-```
-
-The backend verifies it with HMAC-SHA256:
-
-```
-payload = f"{timestamp}.{raw_body}"
-expected = hmac_sha256(WEBHOOK_SECRET, payload)
-assert expected == received_signature
-```
-
-This proves the request genuinely came from ElevenLabs and was not tampered with or simulated.
 
 ---
 
 ## Evaluation Notes
 
-- **No hardcoded transcripts** — all data in MongoDB comes directly from ElevenLabs webhook payloads.
-- **No manual inserts** — conversations are stored only when ElevenLabs fires the post-call webhook; appointments are stored only when the agent calls `book_appointment`.
-- **Real agent responses** — the agent's behaviour is driven entirely by its system prompt and live tool responses; the frontend never fakes responses.
-- **HMAC verification** — webhook authenticity is cryptographically verified on every request.
+- No hardcoded transcripts — all MongoDB data comes from real ElevenLabs webhook payloads
+- No manual inserts — conversations saved only on webhook; appointments saved only when agent calls the tool
+- HMAC-SHA256 webhook signature verified on every request
+- Agent responses driven entirely by system prompt and live tool responses

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: dental-help
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DBNAME
+        value: demodental
+      - key: BACKEND_URL
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: AGENT_ID
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"
