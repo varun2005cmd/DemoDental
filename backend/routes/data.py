@@ -7,7 +7,7 @@ import os
 
 import httpx
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -39,17 +39,21 @@ async def get_conversations(limit: int = 50):
     return JSONResponse({"conversations": results, "count": len(results)})
 
 
-@router.get("/api/conversations/{conv_id}/audio")
-async def get_conversation_audio(conv_id: str):
+@router.api_route("/api/conversations/{conv_id}/audio", methods=["GET", "HEAD"])
+async def get_conversation_audio(conv_id: str, request: Request):
     """Proxy the ElevenLabs conversation audio so the browser can play it."""
     api_key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set")
+    el_url = f"https://api.elevenlabs.io/v1/convai/conversations/{conv_id}/audio"
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"https://api.elevenlabs.io/v1/convai/conversations/{conv_id}/audio",
-            headers={"xi-api-key": api_key},
-        )
+        if request.method == "HEAD":
+            # Lightweight check — just verify audio exists without downloading it
+            resp = await client.head(el_url, headers={"xi-api-key": api_key})
+            if resp.status_code != 200:
+                raise HTTPException(status_code=404, detail="Audio not available yet")
+            return Response(status_code=200, headers={"content-type": "audio/mpeg"})
+        resp = await client.get(el_url, headers={"xi-api-key": api_key})
     if resp.status_code != 200:
         raise HTTPException(status_code=404, detail="Audio not available yet")
     return Response(

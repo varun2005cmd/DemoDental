@@ -336,4 +336,35 @@ tbody tr:hover td { background: rgba(255,255,255,.02); }
   font-size: 0.72rem;
   color: var(--muted);
   font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+.audio-load-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, background .15s;
+}
+.audio-load-btn:hover { background: rgba(99,102,241,.08); border-color: var(--accent); }
+.audio-retry-btn {
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.audio-retry-btn:hover { border-color: var(--accent); color: var(--accent); }
+.audio-checking { font-size: 0.72rem; color: var(--muted); font-style: italic; }
+.audio-wrap { min-width: 130px; }
