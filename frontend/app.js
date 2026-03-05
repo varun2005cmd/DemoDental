@@ -16,6 +16,7 @@ class App {
     this.agentId = "";
     this.timer = null;
     this.lines = [];
+    this.doctors = [];
     this.init();
   }
 
@@ -28,6 +29,12 @@ class App {
         if (r.ok) this.agentId = (await r.json()).agent_id;
       } catch {}
     }
+    // Load doctors list
+    try {
+      const r = await fetch("/api/doctors");
+      if (r.ok) this.doctors = (await r.json()).doctors ?? [];
+    } catch {}
+
     this.mountWidget();
     await this.refreshData();
     this.setStatus("online","Connected");
@@ -94,10 +101,16 @@ class App {
     const tbody = document.getElementById("conv-body");
     if (badge) badge.textContent = data.length;
     if (!tbody) return;
-    if (!data.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty">No conversations yet</td></tr>`; return; }
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty">No conversations yet</td></tr>`; return; }
     tbody.innerHTML = data.map(c => `<tr>
       <td class="id-cell">${esc(c.caller_id.slice(0,16))}</td>
       <td class="clip">${esc((c.transcript||c.summary||"").slice(0,100))}</td>
+      <td>
+        <audio class="audio-player" controls preload="none"
+          src="/api/conversations/${esc(c.caller_id)}/audio"
+          onerror="this.parentElement.innerHTML='<span class=\\'no-audio\\'>Not available</span>'">
+        </audio>
+      </td>
       <td>${pill(c.booking_status)}</td>
       <td style="white-space:nowrap">${fmtDate(c.created_at)}</td>
     </tr>`).join("");
@@ -109,13 +122,56 @@ class App {
     const tbody = document.getElementById("appt-body");
     if (badge) badge.textContent = data.length;
     if (!tbody) return;
-    if (!data.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty">No appointments yet</td></tr>`; return; }
-    tbody.innerHTML = data.map(a => `<tr>
-      <td><strong style="color:#f0f0f0">${esc(a.patient_name)}</strong></td>
-      <td>${esc(a.service_type)}</td>
-      <td style="white-space:nowrap">${fmtDate(a.appointment_time)}</td>
-      <td>${pill(a.status)}</td>
-    </tr>`).join("");
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty">No appointments yet</td></tr>`; return; }
+    const doctorOptions = this.doctors.map(d =>
+      `<option value="${esc(d.name)}">${esc(d.name)}</option>`
+    ).join("");
+
+    tbody.innerHTML = data.map(a => {
+      const options = this.doctors.map(d =>
+        `<option value="${esc(d.name)}" ${a.doctor === d.name ? "selected" : ""}>${esc(d.name)}</option>`
+      ).join("");
+      return `<tr data-id="${esc(a.id)}">
+        <td><strong style="color:#f0f0f0">${esc(a.patient_name)}</strong></td>
+        <td>${esc(a.service_type)}</td>
+        <td>
+          <select class="doctor-select" data-id="${esc(a.id)}" onchange="window.app.updateDoctor('${esc(a.id)}', this.value)">
+            <option value="Unassigned" ${(!a.doctor || a.doctor==='Unassigned') ? 'selected' : ''}>Unassigned</option>
+            ${options}
+          </select>
+        </td>
+        <td style="white-space:nowrap">${fmtDate(a.appointment_time)}</td>
+        <td>${pill(a.status)}</td>
+        <td>
+          <button class="delete-btn" onclick="window.app.deleteAppointment('${esc(a.id)}')" title="Delete appointment">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  async deleteAppointment(id) {
+    if (!confirm("Delete this appointment?")) return;
+    try {
+      const r = await fetch(`/api/appointments/${id}`, { method: "DELETE" });
+      if (r.ok) {
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) row.remove();
+        const badge = document.getElementById("appt-count");
+        if (badge) badge.textContent = Math.max(0, parseInt(badge.textContent || "0") - 1);
+      }
+    } catch {}
+  }
+
+  async updateDoctor(id, doctor) {
+    try {
+      await fetch(`/api/appointments/${id}/doctor`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctor }),
+      });
+    } catch {}
   }
 
   showBanner(conv) {
@@ -146,3 +202,4 @@ class App {
 }
 
 window.addEventListener("DOMContentLoaded", () => { window.app = new App(); });
+

@@ -8,6 +8,7 @@ Tools configured on the agent:
 from __future__ import annotations
 
 import os
+import random
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -15,7 +16,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from backend.clinic_data import ALL_SLOTS, SERVICE_NAMES, CLINIC_NAME, CLINIC_ADDRESS, CLINIC_PHONE, CLINIC_HOURS, SERVICES
+from backend.clinic_data import ALL_SLOTS, SERVICE_NAMES, CLINIC_NAME, CLINIC_ADDRESS, CLINIC_PHONE, CLINIC_HOURS, SERVICES, DOCTORS
 from backend.database import appointments_collection
 from backend.models import BookAppointmentRequest
 
@@ -126,12 +127,17 @@ async def book_appointment(payload: BookAppointmentRequest):
                 matched_service = svc
                 break
 
+    # Auto-assign a doctor (round-robin based on appointment count)
+    total_appts = await appointments_col.count_documents({})
+    assigned_doctor = DOCTORS[total_appts % len(DOCTORS)]["name"]
+
     # Insert appointment
     doc = {
         "conversation_id": payload.conversation_id or "unknown",
         "patient_name": payload.patient_name,
         "service_type": matched_service,
         "appointment_time": appt_dt,
+        "doctor": assigned_doctor,
         "status": "confirmed",
         "created_at": datetime.now(timezone.utc),
     }
@@ -145,7 +151,8 @@ async def book_appointment(payload: BookAppointmentRequest):
             "appointment_id": appt_id,
             "message": (
                 f"Appointment confirmed! {payload.patient_name} is booked for "
-                f"{matched_service} on {appt_dt.strftime('%A, %B %d at %I:%M %p UTC')}. "
+                f"{matched_service} on {appt_dt.strftime('%A, %B %d at %I:%M %p UTC')} "
+                f"with {assigned_doctor}. "
                 f"Confirmation ID: {appt_id}. "
                 f"Our address is {CLINIC_ADDRESS}. Phone: {CLINIC_PHONE}."
             ),

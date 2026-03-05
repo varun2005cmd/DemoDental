@@ -287,3 +287,53 @@ tbody tr:hover td { background: rgba(255,255,255,.02); }
 
 /* Utility */
 .hidden { display: none !important; }
+
+/* ── Delete button ─────────────────────────────────────────────────────────── */
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.delete-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(248,113,113,.08);
+}
+
+/* ── Doctor select ─────────────────────────────────────────────────────────── */
+.doctor-select {
+  background: var(--surface2, #1a1a1a);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 0.76rem;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+  max-width: 170px;
+  transition: border-color .15s;
+}
+.doctor-select:hover,
+.doctor-select:focus { border-color: var(--accent); }
+
+/* ── Audio player ──────────────────────────────────────────────────────────── */
+.audio-player {
+  height: 28px;
+  width: 180px;
+  accent-color: var(--accent);
+  filter: invert(1) brightness(0.6);
+  vertical-align: middle;
+}
+.no-audio {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}

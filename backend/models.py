@@ -16,6 +16,7 @@ class ConversationRecord(BaseModel):
     caller_id: str                          # ElevenLabs conversation_id
     transcript: str                          # Full conversation as plain text
     booking_status: Literal["success", "failed", "incomplete"]
+    call_duration_secs: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -25,6 +26,7 @@ class AppointmentRecord(BaseModel):
     patient_name: str
     service_type: str
     appointment_time: datetime
+    doctor: str = "Unassigned"
     status: Literal["confirmed", "rejected"]
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -55,6 +57,7 @@ class ConversationOut(BaseModel):
     caller_id: str
     transcript: str
     booking_status: str
+    call_duration_secs: int = 0
     created_at: str
 
 
@@ -64,5 +67,6 @@ class AppointmentOut(BaseModel):
     patient_name: str
     service_type: str
     appointment_time: str
+    doctor: str
     status: str
     created_at: str

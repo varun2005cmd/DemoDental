@@ -36,6 +36,16 @@ SERVICES = [
 
 SERVICE_NAMES = [s["name"] for s in SERVICES]
 
+# ─── Doctors ──────────────────────────────────────────────────────────────────
+DOCTORS = [
+    {"id": "dr_01", "name": "Dr. Sarah Mitchell",  "specialty": "General Dentistry"},
+    {"id": "dr_02", "name": "Dr. James Patel",      "specialty": "Orthodontics"},
+    {"id": "dr_03", "name": "Dr. Emily Chen",       "specialty": "Endodontics"},
+    {"id": "dr_04", "name": "Dr. Marcus Johnson",  "specialty": "Oral Surgery"},
+    {"id": "dr_05", "name": "Dr. Priya Sharma",    "specialty": "Cosmetic Dentistry"},
+]
+DOCTOR_NAMES = [d["name"] for d in DOCTORS]
+
 # ─── Appointment Slot Generator ───────────────────────────────────────────────
 # weekday=0(Mon)..4(Fri): slots every 30 min from 9:00–17:30 (last starts 17:30)
 # Saturday: 9:00–13:30
