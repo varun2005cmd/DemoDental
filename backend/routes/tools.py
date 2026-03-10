@@ -7,13 +7,12 @@ Tools configured on the agent:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.responses import JSONResponse
 
 from backend.clinic_data import SERVICE_NAMES, CLINIC_NAME, CLINIC_ADDRESS, CLINIC_PHONE, CLINIC_HOURS, SERVICES, DOCTORS
@@ -70,7 +69,7 @@ async def check_availability(date: Optional[str] = Query(None, description="YYYY
 # ─── 2. Book Appointment ──────────────────────────────────────────────────────
 
 @router.post("/api/book-appointment")
-async def book_appointment(payload: BookAppointmentRequest):
+async def book_appointment(payload: BookAppointmentRequest, background_tasks: BackgroundTasks):
     """
     Books an appointment slot.
     The agent calls this once it has collected: patient_name, service_type, appointment_time.
@@ -163,7 +162,7 @@ async def book_appointment(payload: BookAppointmentRequest):
         except Exception as exc:
             logger.error("Background DB save failed for %s: %s", appt_id, exc)
 
-    asyncio.create_task(_save_to_db())
+    background_tasks.add_task(_save_to_db)
 
     return JSONResponse(
         status_code=200,
