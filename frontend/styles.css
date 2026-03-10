@@ -368,3 +368,76 @@ tbody tr:hover td { background: rgba(255,255,255,.02); }
 .audio-retry-btn:hover { border-color: var(--accent); color: var(--accent); }
 .audio-checking { font-size: 0.72rem; color: var(--muted); font-style: italic; }
 .audio-wrap { min-width: 130px; }
+
+/* ── Layout fix: equal-width panels ───────────────────────────────────────── */
+.data-card { min-width: 0; }
+
+/* ── Clickable conversation rows ──────────────────────────────────────────── */
+tr.conv-row { cursor: pointer; }
+tr.conv-row:hover td { background: rgba(79,142,247,.05) !important; }
+
+/* ── Conversation transcript modal ────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 640px;
+  max-height: 82vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-conv-id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.modal-actions { display: flex; align-items: center; gap: 8px; }
+.modal-audio {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-meta {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.modal-transcript-box {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem;
+  font-size: 0.84rem;
+  line-height: 1.9;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.modal-t-agent { color: var(--accent); padding: 0.15rem 0; }
+.modal-t-user  { color: var(--text);   padding: 0.15rem 0; }

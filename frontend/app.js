@@ -17,6 +17,7 @@ class App {
     this.timer = null;
     this.lines = [];
     this.doctors = [];
+    this.convData = [];
     this.init();
   }
 
@@ -120,32 +121,64 @@ class App {
   }
 
   renderConvs(data) {
+    this.convData = data;
     const badge = document.getElementById("conv-count");
     const tbody = document.getElementById("conv-body");
     if (badge) badge.textContent = data.length;
     if (!tbody) return;
-    if (!data.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty">No conversations yet</td></tr>`; return; }
-    tbody.innerHTML = data.map(c => `<tr>
-      <td class="id-cell">${esc(c.caller_id.slice(0,16))}</td>
-      <td class="clip">${esc((c.transcript||c.summary||"").slice(0,100))}</td>
-      <td><div class="audio-wrap" data-cid="${esc(c.caller_id)}">${this._audioCell(c)}</div></td>
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="3" class="empty">No conversations yet</td></tr>`; return; }
+    tbody.innerHTML = data.map(c => `<tr class="conv-row" onclick="window.app.openConvModal('${esc(c.caller_id)}')">
+      <td class="clip">${esc((c.summary || c.transcript || "").slice(0, 90))}</td>
       <td>${pill(c.booking_status)}</td>
       <td style="white-space:nowrap">${fmtDate(c.created_at)}</td>
     </tr>`).join("");
     this.showBanner(data[0]);
   }
 
-  _audioCell(c) {
+  openConvModal(cid) {
+    const c = this.convData.find(x => x.caller_id === cid);
+    if (!c) return;
+    document.getElementById("modal-conv-id").textContent = cid.length > 22 ? cid.slice(0, 22) + "…" : cid;
+    const meta = document.getElementById("modal-meta");
+    meta.innerHTML = [
+      c.conv_status        ? `<span>Status: ${esc(c.conv_status)}</span>`              : "",
+      c.call_duration_secs ? `<span>Duration: ${c.call_duration_secs}s</span>`         : "",
+      c.termination_reason ? `<span>Ended: ${esc(c.termination_reason)}</span>`        : "",
+      `<span>${fmtDate(c.created_at)}</span>`,
+    ].filter(Boolean).join("");
+    const audioWrap = document.getElementById("modal-audio-wrap");
     if (c.has_audio) {
-      return `<button class="audio-load-btn" onclick="window.app.loadAudio('${esc(c.caller_id)}')">▶ Play</button>`;
+      audioWrap.innerHTML = `<audio class="audio-player" controls preload="auto" src="/api/conversations/${encodeURIComponent(cid)}/audio" style="width:100%;height:36px;filter:none"></audio>`;
+      audioWrap.style.display = "";
+    } else {
+      audioWrap.innerHTML = "";
+      audioWrap.style.display = "none";
     }
-    return `<span class="no-audio">Processing… <button class="audio-retry-btn" onclick="window.app.refreshData(true)">Retry</button></span>`;
+    const lines = (c.transcript || "").split("\n").map(line => {
+      if (line.startsWith("Agent:")) return `<div class="modal-t-agent"><strong>Aria:</strong> ${esc(line.slice(6).trim())}</div>`;
+      if (line.startsWith("User:"))  return `<div class="modal-t-user"><strong>You:</strong> ${esc(line.slice(5).trim())}</div>`;
+      return line.trim() ? `<div style="color:var(--muted)">${esc(line)}</div>` : "";
+    }).join("");
+    document.getElementById("modal-transcript").innerHTML =
+      lines || `<p style="color:var(--muted);font-size:.8rem">No transcript available.</p>`;
+    document.getElementById("modal-delete-btn").onclick = () => this.deleteConv(c.id, cid);
+    document.getElementById("conv-modal-overlay").classList.remove("hidden");
   }
 
-  async loadAudio(cid) {
-    const wrap = document.querySelector(`.audio-wrap[data-cid="${cid}"]`);
-    if (!wrap) return;
-    wrap.innerHTML = `<audio class="audio-player" controls autoplay preload="auto" src="/api/conversations/${encodeURIComponent(cid)}/audio"></audio>`;
+  closeConvModal(e) {
+    if (e && e.target !== document.getElementById("conv-modal-overlay")) return;
+    document.getElementById("conv-modal-overlay").classList.add("hidden");
+  }
+
+  async deleteConv(id, cid) {
+    if (!confirm("Delete this conversation and transcript?")) return;
+    try {
+      const r = await fetch(`/api/conversations/${encodeURIComponent(cid)}`, { method: "DELETE" });
+      if (r.ok) {
+        document.getElementById("conv-modal-overlay").classList.add("hidden");
+        await this.refreshData(false);
+      }
+    } catch {}
   }
 
   renderAppts(data) {

@@ -59,8 +59,8 @@
         </div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>ID</th><th>Transcript</th><th>Audio</th><th>Status</th><th>Date</th></tr></thead>
-            <tbody id="conv-body"><tr><td colspan="5" class="empty">No conversations yet</td></tr></tbody>
+            <thead><tr><th>Summary</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="conv-body"><tr><td colspan="3" class="empty">No conversations yet</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -80,6 +80,27 @@
     </div>
 
     <p class="refresh-note" id="refresh-note"></p>
+  <!-- Conversation transcript modal -->
+  <div id="conv-modal-overlay" class="modal-overlay hidden" onclick="window.app.closeConvModal(event)">
+    <div class="modal-box" id="conv-modal">
+      <div class="modal-header">
+        <div>
+          <span class="section-title">Transcript</span>
+          <span class="modal-conv-id" id="modal-conv-id"></span>
+        </div>
+        <div class="modal-actions">
+          <button class="delete-btn" id="modal-delete-btn" title="Delete transcript">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+          <button class="icon-btn" onclick="window.app.closeConvModal()" title="Close">&#x2715;</button>
+        </div>
+      </div>
+      <div id="modal-audio-wrap" class="modal-audio"></div>
+      <div id="modal-meta" class="modal-meta"></div>
+      <div id="modal-transcript" class="modal-transcript-box"></div>
+    </div>
+  </div>
+
   </main>
 
   <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>

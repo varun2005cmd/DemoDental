@@ -224,6 +224,16 @@ async def get_appointments(limit: int = 50):
         return JSONResponse({"appointments": [], "count": 0})
 
 
+@router.delete("/api/conversations/{conv_id}")
+async def delete_conversation(conv_id: str):
+    """Delete a stored conversation transcript by its caller_id."""
+    col = conversations_collection()
+    result = await col.delete_one({"caller_id": conv_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return JSONResponse({"status": "deleted", "caller_id": conv_id})
+
+
 @router.delete("/api/appointments/{appt_id}")
 async def delete_appointment(appt_id: str):
     """Manually delete an appointment by its MongoDB ObjectId."""
