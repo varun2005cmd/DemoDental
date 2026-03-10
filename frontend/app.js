@@ -61,6 +61,7 @@ class App {
 
   onCallStart() {
     this.lines = [];
+    this.currentConvId = null;
     const sec = document.getElementById("transcript-section");
     const box = document.getElementById("live-transcript");
     if (sec) sec.classList.remove("hidden");
@@ -71,6 +72,11 @@ class App {
   }
 
   onMessage(detail) {
+    // Capture conversation_id from initiation metadata
+    if (detail?.type === "conversation_initiation_metadata") {
+      this.currentConvId = detail?.conversation_initiation_metadata_event?.conversation_id
+        || detail?.conversation_id || null;
+    }
     const role    = detail?.message?.role ?? "";
     const content = detail?.message?.content ?? "";
     if (!content) return;
@@ -83,7 +89,12 @@ class App {
 
   onCallEnd() {
     this.setStatus("online","Call ended — saving");
-    setTimeout(() => { this.refreshData(); this.setStatus("online","Connected"); }, 5000);
+    // First refresh: pick up the appointment (booked during call, saved immediately)
+    setTimeout(() => { this.refreshData(); }, 4000);
+    // Second refresh: pick up the transcript (webhook fires ~30-60s after call ends)
+    setTimeout(() => { this.refreshData(); this.setStatus("online","Connected"); }, 40000);
+    // Third refresh: belt-and-suspenders at 90s for slow processing
+    setTimeout(() => { this.refreshData(); }, 90000);
   }
 
   async refreshData() {

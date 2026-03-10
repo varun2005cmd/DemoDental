@@ -116,8 +116,12 @@ async def elevenlabs_webhook(request: Request):
     event_type = body.get("type", "")
     logger.info("Received ElevenLabs webhook event: %s", event_type)
 
-    # We only handle post_call events
-    if event_type not in ("post_call", "transcript", ""):
+    # Accept any event that may carry transcript/analysis data.
+    # ElevenLabs may use different type names across versions.
+    if event_type and event_type not in (
+        "post_call", "post_call_transcription", "transcript", "call_processed",
+    ):
+        logger.info("Received event type '%s' — skipping (no transcript data expected)", event_type)
         return JSONResponse({"status": "ignored", "event_type": event_type})
 
     data = body.get("data", body)  # some versions wrap in data, some don't
@@ -138,10 +142,11 @@ async def elevenlabs_webhook(request: Request):
     # The most reliable check: did book_appointment actually insert a document?
     appt_col = appointments_collection()
 
-    # Try to link any unlinked ("unknown") appointment to this conversation
-    await appt_col.update_one(
+    # Link the MOST RECENTLY booked unlinked appointment to this conversation
+    await appt_col.find_one_and_update(
         {"conversation_id": "unknown", "status": "confirmed"},
         {"$set": {"conversation_id": conversation_id}},
+        sort=[("created_at", -1)],
     )
 
     # Now check if there's a confirmed appointment for this conversation
