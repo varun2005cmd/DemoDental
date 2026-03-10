@@ -173,28 +173,26 @@ async def get_conversation_audio(conv_id: str, request: Request):
     if range_header:
         el_headers["Range"] = range_header
 
-    # Stream response so the browser starts receiving bytes immediately (no full-buffer wait)
-    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10))
-    el_resp = await client.send(
+    # Stream so browser receives bytes immediately — no full-buffer wait before playback starts
+    async_client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10))
+    el_resp = await async_client.send(
         httpx.Request("GET", el_url, headers=el_headers),
         stream=True,
     )
 
     if el_resp.status_code not in (200, 206):
         await el_resp.aclose()
-        await client.aclose()
+        await async_client.aclose()
         raise HTTPException(status_code=404, detail="Audio not available yet")
 
-    # Build response headers — include Content-Length and Content-Range so browser can seek
-    resp_headers: dict = {
-        "Content-Type": el_resp.headers.get("content-type", "audio/mpeg"),
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-    }
+    content_type = el_resp.headers.get("content-type", "audio/mpeg")
+
+    # Pass Content-Length and Content-Range through so the browser can seek
+    extra_headers: dict = {"Accept-Ranges": "bytes", "Cache-Control": "no-cache"}
     if "content-length" in el_resp.headers:
-        resp_headers["Content-Length"] = el_resp.headers["content-length"]
+        extra_headers["Content-Length"] = el_resp.headers["content-length"]
     if "content-range" in el_resp.headers:
-        resp_headers["Content-Range"] = el_resp.headers["content-range"]
+        extra_headers["Content-Range"] = el_resp.headers["content-range"]
 
     async def _stream():
         try:
@@ -202,13 +200,13 @@ async def get_conversation_audio(conv_id: str, request: Request):
                 yield chunk
         finally:
             await el_resp.aclose()
-            await client.aclose()
+            await async_client.aclose()
 
     return StreamingResponse(
         _stream(),
-        status_code=el_resp.status_code,  # 206 for range requests, 200 for full
-        headers=resp_headers,
-        media_type=el_resp.headers.get("content-type", "audio/mpeg"),
+        status_code=el_resp.status_code,
+        headers=extra_headers,
+        media_type=content_type,
     )
 
 
