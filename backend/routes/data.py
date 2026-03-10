@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import httpx
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend.clinic_data import DOCTORS
@@ -160,20 +160,55 @@ async def get_conversations(limit: int = 50):
 
 
 @router.get("/api/conversations/{conv_id}/audio")
-async def get_conversation_audio(conv_id: str):
-    """Proxy the ElevenLabs conversation audio so the browser can play it."""
+async def get_conversation_audio(conv_id: str, request: Request):
+    """Stream the ElevenLabs conversation audio with proper Range support for browser playback."""
     api_key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set")
     el_url = f"https://api.elevenlabs.io/v1/convai/conversations/{conv_id}/audio"
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.get(el_url, headers={"xi-api-key": api_key})
-    if resp.status_code != 200:
+
+    # Forward browser Range header so we get proper 206 responses (required by Safari/Firefox)
+    el_headers: dict = {"xi-api-key": api_key}
+    range_header = request.headers.get("range", "")
+    if range_header:
+        el_headers["Range"] = range_header
+
+    # Stream response so the browser starts receiving bytes immediately (no full-buffer wait)
+    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10))
+    el_resp = await client.send(
+        httpx.Request("GET", el_url, headers=el_headers),
+        stream=True,
+    )
+
+    if el_resp.status_code not in (200, 206):
+        await el_resp.aclose()
+        await client.aclose()
         raise HTTPException(status_code=404, detail="Audio not available yet")
-    return Response(
-        content=resp.content,
-        media_type=resp.headers.get("content-type", "audio/mpeg"),
-        headers={"Accept-Ranges": "bytes", "Cache-Control": "no-cache"},
+
+    # Build response headers — include Content-Length and Content-Range so browser can seek
+    resp_headers: dict = {
+        "Content-Type": el_resp.headers.get("content-type", "audio/mpeg"),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+    }
+    if "content-length" in el_resp.headers:
+        resp_headers["Content-Length"] = el_resp.headers["content-length"]
+    if "content-range" in el_resp.headers:
+        resp_headers["Content-Range"] = el_resp.headers["content-range"]
+
+    async def _stream():
+        try:
+            async for chunk in el_resp.aiter_bytes(chunk_size=16384):
+                yield chunk
+        finally:
+            await el_resp.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        _stream(),
+        status_code=el_resp.status_code,  # 206 for range requests, 200 for full
+        headers=resp_headers,
+        media_type=el_resp.headers.get("content-type", "audio/mpeg"),
     )
 
 

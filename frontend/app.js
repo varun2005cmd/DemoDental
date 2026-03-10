@@ -145,7 +145,7 @@ class App {
   async loadAudio(cid) {
     const wrap = document.querySelector(`.audio-wrap[data-cid="${cid}"]`);
     if (!wrap) return;
-    wrap.innerHTML = `<audio class="audio-player" controls preload="none" src="/api/conversations/${encodeURIComponent(cid)}/audio"></audio>`;
+    wrap.innerHTML = `<audio class="audio-player" controls autoplay preload="auto" src="/api/conversations/${encodeURIComponent(cid)}/audio"></audio>`;
   }
 
   renderAppts(data) {
