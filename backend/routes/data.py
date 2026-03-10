@@ -33,9 +33,8 @@ def _stringify_doc(doc: dict) -> dict:
 @router.post("/api/sync")
 async def sync_conversations():
     """
-    Pull the most recent conversations from ElevenLabs API and store any that
-    are missing from MongoDB.  This is the reliable fallback for when the
-    post-call webhook times out (e.g. Render free-tier cold start).
+    Pull the most recent conversations from ElevenLabs API and upsert into MongoDB.
+    Runs after every call (20s + 60s) to ensure transcripts and audio flags are stored.
     """
     api_key = os.environ.get("ELEVENLABS_API_KEY", "")
     agent_id = os.environ.get("AGENT_ID", "")
@@ -45,6 +44,7 @@ async def sync_conversations():
     conv_col = conversations_collection()
     appt_col = appointments_collection()
     synced = 0
+    skipped = 0
     errors = 0
 
     async with httpx.AsyncClient(timeout=30) as client:
@@ -61,19 +61,24 @@ async def sync_conversations():
             return JSONResponse({"synced": 0, "skipped": 0, "error": f"ElevenLabs {resp.status_code}: {resp.text[:200]}"})
 
         summaries = resp.json().get("conversations", [])
-        skipped = 0
 
         for summary in summaries:
             conv_id = summary.get("conversation_id", "")
             if not conv_id:
                 continue
 
-            # Already stored — skip
-            if await conv_col.find_one({"caller_id": conv_id}):
+            # Skip calls still in progress — no transcript or audio yet
+            if summary.get("status") == "in-progress":
                 skipped += 1
                 continue
 
-            # Fetch full transcript
+            # If already stored WITH audio, nothing new to fetch
+            existing = await conv_col.find_one({"caller_id": conv_id})
+            if existing and existing.get("has_audio"):
+                skipped += 1
+                continue
+
+            # Fetch full detail from ElevenLabs
             try:
                 detail_resp = await client.get(
                     f"https://api.elevenlabs.io/v1/convai/conversations/{conv_id}",
@@ -96,6 +101,8 @@ async def sync_conversations():
                     lines.append(f"{role}: {msg}")
             transcript_text = "\n".join(lines) if lines else "(no transcript)"
 
+            has_audio = bool(detail.get("has_audio") or detail.get("has_response_audio"))
+
             # Link the most recent unlinked appointment to this conversation
             await appt_col.find_one_and_update(
                 {"conversation_id": "unknown", "status": "confirmed"},
@@ -103,7 +110,6 @@ async def sync_conversations():
                 sort=[("created_at", -1)],
             )
 
-            # Determine booking status from actual appointments
             confirmed = await appt_col.find_one({"conversation_id": conv_id, "status": "confirmed"})
             booking_status = "success" if confirmed else "incomplete"
 
@@ -111,13 +117,21 @@ async def sync_conversations():
                 "caller_id": conv_id,
                 "transcript": transcript_text,
                 "booking_status": booking_status,
-                "created_at": datetime.now(timezone.utc),
+                "has_audio": has_audio,
+                "has_response_audio": bool(detail.get("has_response_audio")),
+                "conv_status": detail.get("status", ""),
                 "agent_id": detail.get("agent_id", agent_id),
                 "call_duration_secs": detail.get("metadata", {}).get("call_duration_secs", 0),
                 "termination_reason": detail.get("metadata", {}).get("termination_reason", ""),
                 "summary": detail.get("analysis", {}).get("transcript_summary", ""),
             }
-            await conv_col.insert_one(record)
+
+            if existing:
+                # Update — audio may have become available since last sync
+                await conv_col.update_one({"caller_id": conv_id}, {"$set": record})
+            else:
+                record["created_at"] = datetime.now(timezone.utc)
+                await conv_col.insert_one(record)
             synced += 1
 
     return JSONResponse({"synced": synced, "skipped": skipped, "errors": errors})
@@ -137,27 +151,21 @@ async def get_conversations(limit: int = 50):
         return JSONResponse({"conversations": [], "count": 0})
 
 
-@router.api_route("/api/conversations/{conv_id}/audio", methods=["GET", "HEAD"])
-async def get_conversation_audio(conv_id: str, request: Request):
+@router.get("/api/conversations/{conv_id}/audio")
+async def get_conversation_audio(conv_id: str):
     """Proxy the ElevenLabs conversation audio so the browser can play it."""
     api_key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set")
     el_url = f"https://api.elevenlabs.io/v1/convai/conversations/{conv_id}/audio"
-    async with httpx.AsyncClient(timeout=30) as client:
-        if request.method == "HEAD":
-            # Lightweight check — just verify audio exists without downloading it
-            resp = await client.head(el_url, headers={"xi-api-key": api_key})
-            if resp.status_code != 200:
-                raise HTTPException(status_code=404, detail="Audio not available yet")
-            return Response(status_code=200, headers={"content-type": "audio/mpeg"})
+    async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.get(el_url, headers={"xi-api-key": api_key})
     if resp.status_code != 200:
         raise HTTPException(status_code=404, detail="Audio not available yet")
     return Response(
         content=resp.content,
         media_type=resp.headers.get("content-type", "audio/mpeg"),
-        headers={"Accept-Ranges": "bytes"},
+        headers={"Accept-Ranges": "bytes", "Cache-Control": "no-cache"},
     )
 
 

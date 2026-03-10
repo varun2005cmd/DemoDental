@@ -128,33 +128,24 @@ class App {
     tbody.innerHTML = data.map(c => `<tr>
       <td class="id-cell">${esc(c.caller_id.slice(0,16))}</td>
       <td class="clip">${esc((c.transcript||c.summary||"").slice(0,100))}</td>
-      <td><div class="audio-wrap" data-cid="${esc(c.caller_id)}">${this._audioCell(c.caller_id)}</div></td>
+      <td><div class="audio-wrap" data-cid="${esc(c.caller_id)}">${this._audioCell(c)}</div></td>
       <td>${pill(c.booking_status)}</td>
       <td style="white-space:nowrap">${fmtDate(c.created_at)}</td>
     </tr>`).join("");
     this.showBanner(data[0]);
   }
 
-  _audioCell(cid) {
-    return `<button class="audio-load-btn" onclick="window.app.loadAudio('${esc(cid)}')">▶ Play Recording</button>`;
+  _audioCell(c) {
+    if (c.has_audio) {
+      return `<button class="audio-load-btn" onclick="window.app.loadAudio('${esc(c.caller_id)}')">▶ Play</button>`;
+    }
+    return `<span class="no-audio">Processing… <button class="audio-retry-btn" onclick="window.app.refreshData(true)">Retry</button></span>`;
   }
 
   async loadAudio(cid) {
     const wrap = document.querySelector(`.audio-wrap[data-cid="${cid}"]`);
     if (!wrap) return;
-    wrap.innerHTML = `<span class="audio-checking">Checking…</span>`;
-    try {
-      const check = await fetch(`/api/conversations/${cid}/audio`, { method: "HEAD" });
-      if (check.ok) {
-        wrap.innerHTML = `<audio class="audio-player" controls src="/api/conversations/${encodeURIComponent(cid)}/audio"></audio>`;
-      } else {
-        wrap.innerHTML = `<span class="no-audio">Still processing…
-          <button class="audio-retry-btn" onclick="window.app.loadAudio('${esc(cid)}')">Retry</button>
-        </span>`;
-      }
-    } catch {
-      wrap.innerHTML = `<button class="audio-load-btn" onclick="window.app.loadAudio('${esc(cid)}')">▶ Play Recording</button>`;
-    }
+    wrap.innerHTML = `<audio class="audio-player" controls preload="none" src="/api/conversations/${encodeURIComponent(cid)}/audio"></audio>`;
   }
 
   renderAppts(data) {

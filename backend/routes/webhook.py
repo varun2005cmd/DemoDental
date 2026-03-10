@@ -169,12 +169,15 @@ async def elevenlabs_webhook(request: Request):
         booking_status = "failed"
     # else keep the payload-derived booking_status from above
 
-    # ── Store Conversation Record ─────────────────────────────────────────────
+    # ── Store Conversation Record (upsert to avoid duplicates with /api/sync) ──
+    has_audio = bool(data.get("has_audio") or data.get("has_response_audio"))
     record = {
         "caller_id": conversation_id,
         "transcript": transcript_text,
         "booking_status": booking_status,
-        "created_at": datetime.now(timezone.utc),
+        "has_audio": has_audio,
+        "has_response_audio": bool(data.get("has_response_audio")),
+        "conv_status": data.get("status", "done"),
         # Extra metadata for visibility
         "agent_id": data.get("agent_id", ""),
         "call_duration_secs": data.get("metadata", {}).get("call_duration_secs", 0),
@@ -183,8 +186,14 @@ async def elevenlabs_webhook(request: Request):
     }
 
     conv_col = conversations_collection()
-    result = await conv_col.insert_one(record)
-    doc_id = str(result.inserted_id)
+    existing = await conv_col.find_one({"caller_id": conversation_id})
+    if existing:
+        await conv_col.update_one({"caller_id": conversation_id}, {"$set": record})
+        doc_id = str(existing["_id"])
+    else:
+        record["created_at"] = datetime.now(timezone.utc)
+        result = await conv_col.insert_one(record)
+        doc_id = str(result.inserted_id)
 
     logger.info(
         "Stored conversation %s → _id=%s, booking_status=%s",
