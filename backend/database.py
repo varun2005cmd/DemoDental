@@ -17,7 +17,15 @@ def _get_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
         uri = os.environ["MONGODB_URI"]
-        _client = AsyncIOMotorClient(uri)
+        _client = AsyncIOMotorClient(
+            uri,
+            # Fail fast if Atlas is slow — don't hang for 30s
+            serverSelectionTimeoutMS=8000,
+            connectTimeoutMS=8000,
+            socketTimeoutMS=10000,
+            # Keep the connection alive with regular heartbeats
+            heartbeatFrequencyMS=10000,
+        )
     return _client
 
 

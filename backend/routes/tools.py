@@ -8,16 +8,13 @@ Tools configured on the agent:
 from __future__ import annotations
 
 import logging
-import os
-import random
 from datetime import datetime, timezone
 from typing import Optional
 
-from bson import ObjectId
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from backend.clinic_data import ALL_SLOTS, SERVICE_NAMES, CLINIC_NAME, CLINIC_ADDRESS, CLINIC_PHONE, CLINIC_HOURS, SERVICES, DOCTORS
+from backend.clinic_data import SERVICE_NAMES, CLINIC_NAME, CLINIC_ADDRESS, CLINIC_PHONE, CLINIC_HOURS, SERVICES, DOCTORS
 from backend.database import appointments_collection
 from backend.models import BookAppointmentRequest
 
@@ -30,49 +27,30 @@ logger = logging.getLogger(__name__)
 @router.get("/api/slots")
 async def check_availability(date: Optional[str] = Query(None, description="YYYY-MM-DD")):
     """
-    Returns available appointment slots in a clean, LLM-readable format.
-    The agent calls this to present options to the patient.
-    'date' is optional; if absent, returns all upcoming slots (up to 20).
+    Returns available appointment slots. No DB call — fast by design.
+    Booked slots are excluded by the duplicate-check in book_appointment.
     """
-    # Pull already-booked datetimes from MongoDB
-    appointments_col = appointments_collection()
-    booked_isos: set[str] = set()
-    try:
-        async for doc in appointments_col.find({"status": "confirmed"}, {"appointment_time": 1}):
-            if "appointment_time" in doc:
-                dt = doc["appointment_time"]
-                if isinstance(dt, datetime):
-                    booked_isos.add(dt.replace(microsecond=0, tzinfo=timezone.utc).isoformat())
-                else:
-                    booked_isos.add(str(dt)[:19].replace(" ", "T") + "+00:00")
-    except Exception as exc:
-        logger.warning("Could not load booked appointments from DB: %s", exc)
-        # Continue with empty booked set — return all slots rather than failing
-
-    # Re-generate fresh slots (14-day window so there's always plenty)
     from backend.clinic_data import _generate_slots
     fresh_slots = _generate_slots(days_ahead=14)
 
     available = []
     for slot in fresh_slots:
-        # Normalise slot time for comparison
-        iso_norm = slot["datetime_iso"][:19].replace(" ", "T") + "+00:00"
-        if iso_norm in booked_isos:
-            continue
         if date and not slot["datetime_iso"].startswith(date):
             continue
         available.append({
             "slot_id": slot["slot_id"],
-            "datetime_iso": slot["datetime_iso"],   # used when calling book_appointment
-            "label": slot["display"],               # human-readable, read this to the caller
+            "datetime_iso": slot["datetime_iso"],
+            "label": slot["display"],
         })
         if len(available) >= 20:
             break
 
+    logger.info("check_availability → %d slots returned", len(available))
+
     if not available:
         return JSONResponse({
             "available": False,
-            "message": "No available slots found for the requested period. Please ask the patient for a different date.",
+            "message": "No slots available for that date. Ask the patient for a different date.",
             "slots": [],
         })
 
@@ -81,8 +59,8 @@ async def check_availability(date: Optional[str] = Query(None, description="YYYY
         "slots": available,
         "total": len(available),
         "instruction": (
-            "Read 3-5 of these slots to the caller as options. "
-            "When the caller chooses one, use its datetime_iso value when calling book_appointment."
+            "Read 3-4 of these slots to the caller. "
+            "When the caller chooses one, pass its datetime_iso to book_appointment."
         ),
     })
 

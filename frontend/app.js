@@ -38,6 +38,10 @@ class App {
     this.mountWidget();
     await this.refreshData();
     this.setStatus("online","Connected");
+    // Ping /api/health every 8 minutes to prevent Render from sleeping
+    this.keepAlive = setInterval(() => fetch("/api/health").catch(()=>{}), 8 * 60 * 1000);
+    // Also pre-warm the slots endpoint right now so MongoDB reconnects immediately
+    fetch("/api/slots").catch(()=>{});
     this.timer = setInterval(() => this.refreshData(), 10000);
   }
 
@@ -62,6 +66,8 @@ class App {
   onCallStart() {
     this.lines = [];
     this.currentConvId = null;
+    // Pre-warm /api/slots immediately so the agent gets a fast response
+    fetch("/api/slots").catch(()=>{});
     const sec = document.getElementById("transcript-section");
     const box = document.getElementById("live-transcript");
     if (sec) sec.classList.remove("hidden");
