@@ -38,10 +38,11 @@ class App {
     this.mountWidget();
     await this.refreshData();
     this.setStatus("online","Connected");
-    // Ping /api/health every 8 minutes to prevent Render from sleeping
-    this.keepAlive = setInterval(() => fetch("/api/health").catch(()=>{}), 8 * 60 * 1000);
-    // Also pre-warm the slots endpoint right now so MongoDB reconnects immediately
-    fetch("/api/slots").catch(()=>{});
+    // Ping /api/health every 5 minutes — health now also pings MongoDB
+    // so this keeps both Render AND the DB connection alive
+    this.keepAlive = setInterval(() => fetch("/api/health").catch(()=>{}), 5 * 60 * 1000);
+    // Pre-warm MongoDB right now (health pings DB)
+    fetch("/api/health").catch(()=>{});
     this.timer = setInterval(() => this.refreshData(), 10000);
   }
 
@@ -66,7 +67,8 @@ class App {
   onCallStart() {
     this.lines = [];
     this.currentConvId = null;
-    // Pre-warm /api/slots immediately so the agent gets a fast response
+    // Pre-warm DB via health ping + warm slots so agent gets fast response
+    fetch("/api/health").catch(()=>{});
     fetch("/api/slots").catch(()=>{});
     const sec = document.getElementById("transcript-section");
     const box = document.getElementById("live-transcript");

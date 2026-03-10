@@ -20,9 +20,9 @@ def _get_client() -> AsyncIOMotorClient:
         _client = AsyncIOMotorClient(
             uri,
             # Fail fast if Atlas is slow — don't hang for 30s
-            serverSelectionTimeoutMS=8000,
-            connectTimeoutMS=8000,
-            socketTimeoutMS=10000,
+            serverSelectionTimeoutMS=15000,
+            connectTimeoutMS=15000,
+            socketTimeoutMS=20000,
             # Keep the connection alive with regular heartbeats
             heartbeatFrequencyMS=10000,
         )

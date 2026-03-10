@@ -168,8 +168,22 @@ async def book_appointment(payload: BookAppointmentRequest):
         "status": "confirmed",
         "created_at": datetime.now(timezone.utc),
     }
-    result = await appointments_col.insert_one(doc)
-    appt_id = str(result.inserted_id)
+    try:
+        result = await appointments_col.insert_one(doc)
+        appt_id = str(result.inserted_id)
+    except Exception as exc:
+        logger.error("DB insert failed for booking: %s", exc)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": False,
+                "appointment_id": None,
+                "message": (
+                    f"I have your details, {payload.patient_name}, but I couldn't save the booking right now due to a brief connection issue. "
+                    "Could you please call us at (217) 555-0148 to confirm, or try again in a moment?"
+                ),
+            },
+        )
 
     return JSONResponse(
         status_code=200,

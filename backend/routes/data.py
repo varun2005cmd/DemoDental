@@ -216,4 +216,12 @@ async def get_config():
 
 @router.get("/api/health")
 async def health():
-    return JSONResponse({"status": "ok", "service": "demodental-backend"})
+    # Ping MongoDB too so the keep-alive request also warms the DB connection
+    db_ok = False
+    try:
+        col = conversations_collection()
+        await col.database.command("ping")
+        db_ok = True
+    except Exception:
+        pass
+    return JSONResponse({"status": "ok", "service": "demodental-backend", "db": db_ok})
