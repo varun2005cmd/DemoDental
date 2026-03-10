@@ -3,6 +3,7 @@ Read/write endpoints consumed by the frontend to display and manage stored data.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import datetime, timezone
 
@@ -223,11 +224,12 @@ async def get_config():
 
 @router.get("/api/health")
 async def health():
-    # Ping MongoDB too so the keep-alive request also warms the DB connection
+    # Attempt a fast MongoDB ping; don't block long (just signals if DB is warm)
     db_ok = False
     try:
         col = conversations_collection()
-        await col.database.command("ping")
+        # Use a tight per-operation timeout so health responds quickly
+        await asyncio.wait_for(col.database.command("ping"), timeout=5.0)
         db_ok = True
     except Exception:
         pass
