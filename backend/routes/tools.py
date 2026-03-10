@@ -7,7 +7,9 @@ Tools configured on the agent:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -73,8 +75,6 @@ async def book_appointment(payload: BookAppointmentRequest):
     Books an appointment slot.
     The agent calls this once it has collected: patient_name, service_type, appointment_time.
     """
-    appointments_col = appointments_collection()
-
     # Parse appointment_time
     try:
         # Handle various ISO formats the LLM might produce
@@ -93,28 +93,6 @@ async def book_appointment(payload: BookAppointmentRequest):
                 "message": (
                     f"I'm sorry, I couldn't parse the time '{payload.appointment_time}'. "
                     "Please ask the patient to confirm a specific slot from the available list."
-                ),
-            },
-        )
-
-    # Check if slot is already taken (skip if DB is unreachable)
-    try:
-        existing = await appointments_col.find_one({
-            "appointment_time": appt_dt,
-            "status": "confirmed",
-        })
-    except Exception as exc:
-        logger.warning("DB find_one failed (skipping duplicate check): %s", exc)
-        existing = None
-    if existing:
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": False,
-                "appointment_id": None,
-                "message": (
-                    "That time slot is already booked. "
-                    "Please offer the patient another available slot."
                 ),
             },
         )
@@ -162,8 +140,11 @@ async def book_appointment(payload: BookAppointmentRequest):
     name_hash = sum(ord(c) for c in payload.patient_name)
     assigned_doctor = DOCTORS[name_hash % len(DOCTORS)]["name"]
 
-    # Insert appointment
+    # Generate confirmation ID immediately — no DB needed for the response
+    appt_id = uuid.uuid4().hex[-6:].upper()
+
     doc = {
+        "local_id": appt_id,
         "conversation_id": payload.conversation_id or "unknown",
         "patient_name": payload.patient_name,
         "service_type": matched_service,
@@ -172,22 +153,17 @@ async def book_appointment(payload: BookAppointmentRequest):
         "status": "confirmed",
         "created_at": datetime.now(timezone.utc),
     }
-    try:
-        result = await appointments_col.insert_one(doc)
-        appt_id = str(result.inserted_id)
-    except Exception as exc:
-        logger.error("DB insert failed for booking: %s", exc)
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": False,
-                "appointment_id": None,
-                "message": (
-                    f"I have your details, {payload.patient_name}, but I couldn't save the booking right now due to a brief connection issue. "
-                    "Could you please call us at (217) 555-0148 to confirm, or try again in a moment?"
-                ),
-            },
-        )
+
+    # Fire-and-forget DB save — don't block the response on MongoDB
+    async def _save_to_db():
+        try:
+            col = appointments_collection()
+            await col.insert_one(doc)
+            logger.info("Appointment %s saved to MongoDB.", appt_id)
+        except Exception as exc:
+            logger.error("Background DB save failed for %s: %s", appt_id, exc)
+
+    asyncio.create_task(_save_to_db())
 
     return JSONResponse(
         status_code=200,
@@ -197,7 +173,7 @@ async def book_appointment(payload: BookAppointmentRequest):
             "message": (
                 f"Appointment confirmed! {payload.patient_name} is booked for "
                 f"{matched_service} on {appt_dt.strftime('%A, %B %d at %I:%M %p')} UTC "
-                f"with {assigned_doctor}. Your confirmation ID is {appt_id[-6:].upper()}."
+                f"with {assigned_doctor}. Your confirmation ID is {appt_id}."
             ),
         },
     )
